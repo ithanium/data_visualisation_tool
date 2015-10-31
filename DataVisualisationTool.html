@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Data Visualisation Tool</title>
+    <script type="text/javascript" src="d3/d3.js"></script>
+    
+    <link rel="stylesheet" href="css/radar-chart.css"/>
+    <script src="js/radar-chart.js"></script>
+
+    <script type="text/javascript" src="js/colorpicker.js"></script>
+    <script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
+    <link rel="stylesheet" type="text/css" href="css/themes.css" />
+
+    <link rel="stylesheet" href="css/dropdown.css"/>
+
+    <style>
+        .radar-chart .area {
+            fill-opacity: 0.7;
+        }
+        .radar-chart.focus .area {
+            fill-opacity: 0.3;
+        }
+        .radar-chart.focus .area.focused {
+            fill-opacity: 0.9;
+        }
+        .area.yes, .yes .circle {
+            fill: #419fff;
+            stroke: none;
+        }
+        .area.no, .no .circle {
+            fill: #ff3f3f;
+            stroke: none;
+        }
+
+        .axis path,
+        .axis line {
+          fill: none;
+          stroke: #000;
+          shape-rendering: crispEdges;
+        }
+
+        .bar {
+          fill: steelblue;
+          opacity:0.95;
+        }
+
+        .bar:hover{
+          fill: darkred;
+          opacity:0.95;
+        }
+
+        .d3-tip {
+          line-height: 1;
+          font-weight: bold;
+          padding: 12px;
+          background: rgba(0, 0, 0, 0.8);
+          color: #fff;
+          border-radius: 2px;
+        }
+
+        /* Creates a small triangle extender for the tooltip */
+        .d3-tip:after {
+          box-sizing: border-box;
+          display: inline;
+          font-size: 10px;
+          width: 100%;
+          line-height: 1;
+          color: rgba(0, 0, 0, 0.8);
+          content: "\25BC";
+          position: absolute;
+          text-align: center;
+        }
+
+        /* Style northward tooltips differently */
+        .d3-tip.n:after {
+          margin: -1px 0 0 0;
+          top: 100%;
+          left: 0;
+        }
+
+        .x.axis path {
+          display: none;
+        }
+
+    </style>
+
+    <script>
+    function loadAll(){
+        var coudrop = document.getElementById("coudrop");
+        var checkboxes = coudrop.getElementsByTagName('input');
+        
+        for(var i=0; i<checkboxes.length; i++){
+                checkboxes[i].checked = 1;
+        }
+        
+        toggleMode();
+        getCheckboxValues();
+        redrawbigchart();
+    }
+
+    function shuffle(o){
+        for(var j, x, i = o.length; i; j = Math.floor(Math.random() * i), x = o[--i], o[i] = o[j], o[j] = x);
+        return o;
+    };
+
+    var colorArray = ["#c4a613", "#ffba00", "#763d06", "#ff8549", "#ff662c", "#f87072", "#8d1829", "#f2669b", "#98516d", "#c8498f", "#71284f", "#9c7098", "#3d1547", "#7d5f98", "#5e4993", "#7b6e7f", "#4c6888", "#416ab5", "#6f8393", "#1082bd", "#004d62", "#003e49", "#416c69", "#005a51", "#6ed9af", "#70b715", "#96974b", "#e4e000", "#936b31", "#98abc5", "#8a89a6", "#7b6888", "#6b486b", "#a05d56", "#d0743c", "#ff8c00"];
+    colorArray = shuffle(colorArray);
+
+    var mode = 0;
+    var counties = [];
+    var keys = [];
+
+    function getCheckboxValues() {
+        var form = document.getElementById("myFormMenu");
+
+        counties = [];
+
+        keys = ["LocalAuthorityName"];//, "Electorate", "Yes", "No"];
+        //keys = ['LocalAuthorityName','Electorate','NumberofVotes','Yes','No','RejectedPapers','Estimatedpopulation2013','EstimatedMales2013','EstimatedFemales2013','Areasquarekm','Populationdensity','Councilexpenditurepercapita','TotalPopulationSAPE2010','BestfitWorkingAgePopulation','OverallSIMD2012Score','OverallSIMD2012Rank','Incomedomain2012rate','NumberofIncomeDeprivedPeople2012','Incomedomain2012rank','Employmentdomain2012rate','NumberofEmploymentDeprivedPeople2012','Employmentdomain2012rank','Healthdomain2012score','Healthdomain2012rank','EducationSkillsandTrainingdomain2012score','EducationSkillsandTrainingdomain2012rank','Housingdomainscore','Housingdomainrank','GeographicAccessdomain2012score','GeographicAccessdomain2012rank','SIMDCrime2012score','SIMDCrime2012rank','Workingagepeoplewithnoqualifications','Peopleaged1619notinfulltimeeducation','Proportionof1721yearoldsenteringhighereducation','PupilPerformanceonSQAatStage4','SchoolPupilAbsences']; 
+
+        var countiesCB = form.counties;
+        var keysCB = form.keys;
+
+        for (var i=0, iLen=countiesCB.length; i<iLen; i++) {
+            if (countiesCB[i].checked) {
+                counties.push(countiesCB[i].value);
+                //console.log(countiesCB[i].value);
+            }
+        }
+
+        for (var i=0, iLen=keysCB.length; i<iLen; i++) {
+            if (keysCB[i].checked) {
+                keys.push(keysCB[i].value);
+            }
+        }
+
+
+        //alert("Counties: " + counties.join(', ') + "\n" + "Keys: " + keys.join(', '));
+        
+        redrawbigchart();
+    }
+    
+    function showMenu() {
+        var menu = document.getElementById("menu");
+        menu.style.display = "block";
+    }
+    
+    function hideMenu() {
+        var menu = document.getElementById("menu");
+        menu.style.display = "none";
+    }
+
+    function showSpiderChart() {
+        var spiderchart = document.getElementById("spiderchart");
+        spiderchart.style.display = "block";
+    }
+    
+    function hideSpiderChart() {
+        var spiderchart = document.getElementById("spiderchart");
+        spiderchart.style.display = "none";
+    }
+
+    function showBigChart() {
+        var bigchart = document.getElementById("bigchart");
+        bigchart.style.display = "block";
+    }
+    
+    function hideBigChart() {
+        var bigchart = document.getElementById("bigchart");
+        bigchart.style.display = "none";
+    }
+
+    function showHelp() {
+        hideColorPicker();
+        var help = document.getElementById("help");
+        help.style.display = "block";
+    }
+
+    function hideHelp() {
+        var help = document.getElementById("help");
+        help.style.display = "none";
+    }
+
+    function hideLegend() {
+        var legend = document.getElementById("GraphLegend");
+        legend.style.display = "none";
+    }
+
+    function showLegend(){
+        var legend = document.getElementById("GraphLegend");
+        legend.style.display = "block";
+    }
+
+    function showColorPicker() {
+        hideHelp();
+        var help = document.getElementById("colpicker");
+        help.style.display = "block";
+    }
+
+    function hideColorPicker() {
+        var help = document.getElementById("colpicker");
+        help.style.display = "none";
+    }
+
+    function toggleMode(){
+        if(mode == 0){
+            hideSpiderChart();
+            hideLegend();
+
+            document.body.style.background = "#ffffff";//"#374954";
+            
+            showMenu();
+            showBigChart();
+            
+            mode = 1;
+        } else if(mode == 1){
+            hideMenu();
+            hideBigChart();
+            
+            document.body.style.background = "#ffffff";
+
+            showSpiderChart();
+            showLegend();
+            
+            mode = 0;
+        }
+    }
+
+    function loadCounty(county){
+        var coudrop = document.getElementById("coudrop");
+        var checkboxes = coudrop.getElementsByTagName('input');
+        
+        for(var i=0; i<checkboxes.length; i++){
+            if(checkboxes[i].value == county){
+                checkboxes[i].checked = 1;
+            }
+        }
+        
+        toggleMode();
+        getCheckboxValues();
+        redrawbigchart();
+    }
+
+    function redrawbigchart(){
+        var bigchart = document.getElementById("bigchart");
+        bigchart.innerHTML = "";
+
+        if(counties.length < 1){
+            return;
+        }
+
+var showCounties = counties;
+var showKeys = keys;
+//var showCounties = ["Aberdeen City", "Aberdeenshire", "Angus", "Argyll & Bute", "Clackmannanshire", "Dumfries & Galloway", "Dundee City", "East Ayrshire", "East Dunbartonshire", "East Lothian", "East Renfrewshire", "Edinburgh, City of", "Eilean Siar", "Falkirk", "Fife", "Glasgow City", "Highland", "Inverclyde", "Midlothian", "Moray", "North Ayrshire", "North Lanarkshire", "Orkney Islands", "Perth & Kinross", "Renfrewshire", "Scottish Borders", "Shetland Islands", "South Ayrshire", "South Lanarkshire", "Stirling", "West Dunbartonshire", "West Lothian"];
+
+//var showCounties = ["Aberdeen City", "Aberdeenshire", "Angus"];
+
+//console.log(showCounties.length);
+
+//var showKeys = ["TotalPopulationSAPE2010", "BestfitWorkingAgePopulation", "OverallSIMD201Score", "OverallSIMD2012Rank", "Incomedomain2012rate", "NumberofIncomeDeprivedPeople2012", "Incomedomain2012rank", "Employmentdomain2012rate", "NumberofEmploymentDeprivedPeople2012", "Employmentdomain2012rank", "Healthdomain2012score", "Healthdomain2012rank", "EducationSkillsandTrainingdomain2012score", "EducationSkillsandTrainingdomain2012rank", "Housingdomainscore", "Housingdomainrank", "GeographicAccessdomain2012score", "GeographicAccessdomain2012rank", "SIMDCrime2012score", "SIMDCrime2012rank", "Workingagepeoplewithnoqualifications", "Peopleaged1619notinfulltimeeducation", "Proportionof1721yearoldsenteringhighereducation", "PupilPerformanceonSQAatStage4", "SchoolPupilAbsences"];
+
+//var showKeys = ["TotalPopulationSAPE2010"];
+//var showKeys = ["TotalPopulationSAPE2010", "Healthdomain2012rank", "Employmentdomain2012rank"];
+
+var filteredKeys = ["LocalAuthorityName"];//, "TotalPopulationSAPE2010", "BestfitWorkingAgePopulation", "OverallSIMD201Score", "OverallSIMD2012Rank", "Incomedomain2012rate", "NumberofIncomeDeprivedPeople2012", "Incomedomain2012rank", "Employmentdomain2012rate", "NumberofEmploymentDeprivedPeople2012", "Employmentdomain2012rank", "Healthdomain2012score", "Healthdomain2012rank", "EducationSkillsandTrainingdomain2012score", "EducationSkillsandTrainingdomain2012rank", "Housingdomainscore", "Housingdomainrank", "GeographicAccessdomain2012score", "GeographicAccessdomain2012rank", "SIMDCrime2012score", "SIMDCrime2012rank", "Workingagepeoplewithnoqualifications", "Peopleaged1619notinfulltimeeducation", "Proportionof1721yearoldsenteringhighereducation", "PupilPerformanceonSQAatStage4", "SchoolPupilAbsences"];
+
+var barWidth = 20;
+
+if(showKeys.length < 7){
+    barWidth = 60;//(barWidth * showKeys.length)<60?60:(barWidth * showKeys.length);
+} else {
+    barWidth = 20;
+}
+
+var margin = {top: 20, right: 20, bottom: 30, left: 80},
+    //width = window.innerWidth*5 - margin.left - margin.right,
+    //height = window.innerHeight*0.75 - margin.top - margin.bottom;
+    width = (showCounties.length * showKeys.length * (barWidth))>960?(showCounties.length * showKeys.length * (barWidth)):960,
+    height = window.innerHeight*0.75 - margin.top - margin.bottom;
+
+var x0 = d3.scale.ordinal()
+    .rangeRoundBands([0, width], .1);
+
+var x1 = d3.scale.ordinal();
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+var color = d3.scale.ordinal()
+    .range(colorArray);
+
+var xAxis = d3.svg.axis()
+    .scale(x0)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left")
+    //.tickFormat(d3.format(".2s"));
+    .ticks(20);
+
+var tip = d3.tip()
+  .attr('class', 'd3-tip')
+  .offset([30, 0])
+  .html(function(d) {
+    return "<strong>Value:</strong> <span style='color:white'>" + d.value + "</span>";
+  })
+
+var svg = d3.select("#bigchart").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+svg.call(tip);
+
+d3.tsv("data.tsv", function(error, data) {
+  var sums = [];
+  var count = [];
+  for (var i = 0; i < data.length; i++) {
+    if(showCounties.indexOf(data[i]['Local Authority Name']) == -1){
+      continue;
+    }
+    var LocalAuthorityName = data[i]['Local Authority Name'];
+
+    var Electorate = data[i]['Electorate'];
+    var NumberofVotes = data[i]['Number of Votes'];
+    var Yes = data[i]['Yes'];
+    var No = data[i]['No'];
+    var RejectedPapers = data[i]['Rejected Papers'];
+    var Estimatedpopulation2013 = data[i]['Estimated population (2013)'];
+    var EstimatedMales2013 = data[i]['Estimated Males (2013)'];
+    var EstimatedFemales2013 = data[i]['Estimated Females (2013)'];
+    var Areasquarekm = data[i]['Area (square km)'];
+    var Populationdensity = data[i]['Population density'];
+    var Councilexpenditurepercapita = data[i]['Council expenditure per capita (£)'];
+
+    var TotalPopulationSAPE2010 = data[i]['Total Population SAPE 2010'];
+    var BestfitWorkingAgePopulation = data[i]['Best-fit Working Age Population'];
+    var OverallSIMD201Score = data[i]['Overall SIMD 2012 Score'];
+    var OverallSIMD2012Rank = data[i]['Overall SIMD 2012 Rank'];
+    var Incomedomain2012rate = data[i]['Income domain 2012 rate'];
+    var NumberofIncomeDeprivedPeople2012 = data[i]['Number of Income Deprived People 2012'];
+    var Incomedomain2012rank = data[i]['Income domain 2012 rank'];
+    var Employmentdomain2012rate = data[i]['Employment domain 2012 rate'];
+    var NumberofEmploymentDeprivedPeople2012 = data[i]['Number of Employment Deprived People 2012'];
+    var Employmentdomain2012rank = data[i]['Employment domain 2012 rank'];
+    var Healthdomain2012score = data[i]['Health domain 2012 score'];
+    var Healthdomain2012rank = data[i]['Health domain 2012 rank'];
+    var EducationSkillsandTrainingdomain2012score = data[i]['Education Skills and Training domain 2012 score'];
+    var EducationSkillsandTrainingdomain2012rank = data[i]['Education Skills and Training domain 2012 rank'];
+    var Housingdomainscore = data[i]['Housing domain score'];
+    var Housingdomainrank = data[i]['Housing domain rank'];
+    var GeographicAccessdomain2012score = data[i]['Geographic Access domain 2012 score'];
+    var GeographicAccessdomain2012rank = data[i]['Geographic Access domain 2012 rank'];
+    var SIMDCrime2012score = data[i]['SIMD Crime 2012 score'];
+    var SIMDCrime2012rank = data[i]['SIMD Crime 2012 rank'];
+    var Workingagepeoplewithnoqualifications = data[i]['Working age people with no qualifications'];
+    var Peopleaged1619notinfulltimeeducation = data[i]['People aged 16-19 not in full time education'];
+    var Proportionof1721yearoldsenteringhighereducation = data[i]['Proportion of 17-21 year olds entering higher education'];
+    var PupilPerformanceonSQAatStage4 = data[i]['Pupil Performance on SQA at Stage 4']; 
+    var SchoolPupilAbsences = data[i]['School Pupil Absences']; 
+
+    var found = false;
+    for (var j = 0; j < sums.length; j++) {
+      if (sums[j].LocalAuthorityName === LocalAuthorityName) {
+        sums[j].Electorate += parseInt(Electorate);
+        sums[j].NumberofVotes += parseInt(NumberofVotes);
+        sums[j].Yes += parseInt(Yes);
+        sums[j].No += parseInt(No);
+        sums[j].RejectedPapers += parseInt(RejectedPapers);
+        sums[j].Estimatedpopulation2013 += parseInt(Estimatedpopulation2013);
+        sums[j].EstimatedMales2013 += parseInt(EstimatedMales2013);
+        sums[j].EstimatedFemales2013 += parseInt(EstimatedFemales2013);
+        sums[j].Areasquarekm += parseInt(Areasquarekm);
+        sums[j].Populationdensity += parseInt(Populationdensity);
+        sums[j].Councilexpenditurepercapita += parseInt(Councilexpenditurepercapita);
+
+        sums[j].TotalPopulationSAPE2010 += parseInt(TotalPopulationSAPE2010);
+        sums[j].BestfitWorkingAgePopulation += parseInt(BestfitWorkingAgePopulation);
+        sums[j].OverallSIMD201Score += parseInt(OverallSIMD201Score);
+        sums[j].OverallSIMD2012Rank += parseInt(OverallSIMD2012Rank);
+        sums[j].Incomedomain2012rate += parseInt(Incomedomain2012rate);
+        sums[j].NumberofIncomeDeprivedPeople2012 += parseInt(NumberofIncomeDeprivedPeople2012);
+        sums[j].Incomedomain2012rank += parseInt(Incomedomain2012rank);
+        sums[j].Employmentdomain2012rate += parseInt(Employmentdomain2012rate);
+        sums[j].NumberofEmploymentDeprivedPeople2012 += parseInt(NumberofEmploymentDeprivedPeople2012);
+        sums[j].Employmentdomain2012rank += parseInt(Employmentdomain2012rank);
+        sums[j].Healthdomain2012score += parseInt(Healthdomain2012score);
+        sums[j].Healthdomain2012rank += parseInt(Healthdomain2012rank);
+        sums[j].EducationSkillsandTrainingdomain2012score += parseInt(EducationSkillsandTrainingdomain2012score);
+        sums[j].EducationSkillsandTrainingdomain2012rank += parseInt(EducationSkillsandTrainingdomain2012rank);
+        sums[j].Housingdomainscore += parseInt(Housingdomainscore);
+        sums[j].Housingdomainrank += parseInt(Housingdomainrank);
+        sums[j].GeographicAccessdomain2012score += parseInt(GeographicAccessdomain2012score);
+        sums[j].GeographicAccessdomain2012rank += parseInt(GeographicAccessdomain2012rank);
+        sums[j].SIMDCrime2012score += parseInt(SIMDCrime2012score);
+        sums[j].SIMDCrime2012rank += parseInt(SIMDCrime2012rank);
+        sums[j].Workingagepeoplewithnoqualifications += parseInt(Workingagepeoplewithnoqualifications);
+        sums[j].Peopleaged1619notinfulltimeeducation += parseInt(Peopleaged1619notinfulltimeeducation);
+        sums[j].Proportionof1721yearoldsenteringhighereducation += parseInt(Proportionof1721yearoldsenteringhighereducation);
+        sums[j].PupilPerformanceonSQAatStage4 += parseInt(PupilPerformanceonSQAatStage4);
+        sums[j].SchoolPupilAbsences += parseInt(SchoolPupilAbsences);
+        found = true;
+		count[j] += 1;
+      }
+    }
+
+    if (! found) {
+      sums.push({
+        LocalAuthorityName: LocalAuthorityName,
+        
+        Electorate: parseInt(Electorate),
+        NumberofVotes: parseInt(NumberofVotes),
+        Yes: parseInt(Yes),
+        No: parseInt(No),
+        RejectedPapers: parseInt(RejectedPapers),
+        Estimatedpopulation2013: parseInt(Estimatedpopulation2013),
+        EstimatedMales2013: parseInt(EstimatedMales2013),
+        EstimatedFemales2013: parseInt(EstimatedFemales2013),
+        Areasquarekm: parseInt(Areasquarekm),
+        Populationdensity: parseInt(Populationdensity),
+        Councilexpenditurepercapita: parseInt(Councilexpenditurepercapita),
+
+        TotalPopulationSAPE2010: parseInt(TotalPopulationSAPE2010),
+        BestfitWorkingAgePopulation: parseInt(BestfitWorkingAgePopulation),
+        OverallSIMD201Score: parseInt(OverallSIMD201Score),
+        OverallSIMD2012Rank: parseInt(OverallSIMD2012Rank),
+        Incomedomain2012rate: parseInt(Incomedomain2012rate),
+        NumberofIncomeDeprivedPeople2012: parseInt(NumberofIncomeDeprivedPeople2012),
+        Incomedomain2012rank: parseInt(Incomedomain2012rank),
+        Employmentdomain2012rate: parseInt(Employmentdomain2012rate),
+        NumberofEmploymentDeprivedPeople2012: parseInt(NumberofEmploymentDeprivedPeople2012),
+        Employmentdomain2012rank: parseInt(Employmentdomain2012rank),
+        Healthdomain2012score: parseInt(Healthdomain2012score),
+        Healthdomain2012rank: parseInt(Healthdomain2012rank),
+        EducationSkillsandTrainingdomain2012score: parseInt(EducationSkillsandTrainingdomain2012score),
+        EducationSkillsandTrainingdomain2012rank: parseInt(EducationSkillsandTrainingdomain2012rank),
+        Housingdomainscore: parseInt(Housingdomainscore),
+        Housingdomainrank: parseInt(Housingdomainrank),
+        GeographicAccessdomain2012score: parseInt(GeographicAccessdomain2012score),
+        GeographicAccessdomain2012rank: parseInt(GeographicAccessdomain2012rank),
+        SIMDCrime2012score: parseInt(SIMDCrime2012score),
+        SIMDCrime2012rank: parseInt(SIMDCrime2012rank),
+        Workingagepeoplewithnoqualifications: parseInt(Workingagepeoplewithnoqualifications),
+        Peopleaged1619notinfulltimeeducation: parseInt(Peopleaged1619notinfulltimeeducation),
+        Proportionof1721yearoldsenteringhighereducation: parseInt(Proportionof1721yearoldsenteringhighereducation),
+        PupilPerformanceonSQAatStage4: parseInt(PupilPerformanceonSQAatStage4),
+        SchoolPupilAbsences: parseInt(SchoolPupilAbsences)
+      });
+	count.push(0);
+    }
+  }
+
+
+  for (var j = 0; j < sums.length; j++)
+	{
+        sums[j].OverallSIMD201Score /= count[j];
+        sums[j].OverallSIMD2012Rank /= count[j];
+        sums[j].Incomedomain2012rate /= count[j];
+        sums[j].Incomedomain2012rank /= count[j];
+        sums[j].Employmentdomain2012rate /= count[j];
+        sums[j].Employmentdomain2012rank /= count[j];
+        sums[j].Healthdomain2012score /= count[j];
+        sums[j].Healthdomain2012rank /= count[j];
+        sums[j].EducationSkillsandTrainingdomain2012score /= count[j];
+        sums[j].EducationSkillsandTrainingdomain2012rank /= count[j];
+        sums[j].Housingdomainscore /= count[j];
+        sums[j].Housingdomainrank /= count[j];
+        sums[j].GeographicAccessdomain2012score /= count[j];
+        sums[j].GeographicAccessdomain2012rank /= count[j];
+        sums[j].SIMDCrime2012score /= count[j];
+        sums[j].SIMDCrime2012rank /= count[j];
+        sums[j].PupilPerformanceonSQAatStage4 /= count[j];
+        sums[j].SchoolPupilAbsences /= count[j];
+    }
+
+  data = sums;
+
+  console.log(count);
+  console.log(data);
+
+  var ageNames = d3.keys(data[0]).filter(function(key) { if(showKeys.indexOf(key)!=-1 && filteredKeys.indexOf(key)==-1){ return key;}});
+  data.forEach(function(d) {
+    d.ages = ageNames.map(function(name) { return {name: name, value: +d[name]}; });
+  });
+
+  x0.domain(data.map(function(d) { return d.LocalAuthorityName; }));
+  x1.domain(ageNames).rangeRoundBands([0, x0.rangeBand()]);
+  y.domain([0, d3.max(data, function(d) { return d3.max(d.ages, function(d) { return d.value; }); })]);
+
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis);
+
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis)
+    .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 6)
+      .attr("dy", ".71em")
+      .style("text-anchor", "end")
+      .text("Values");
+
+  var state = svg.selectAll(".LocalAuthorityName")
+      .data(data)
+    .enter().append("g")
+      .attr("class", "g")
+      .attr("transform", function(d) { return "translate(" + x0(d.LocalAuthorityName) + ",0)"; });
+
+  state.selectAll("rect")
+      .data(function(d) { return d.ages; })
+    .enter().append("rect")
+      .attr("width", x1.rangeBand())
+      .attr("x", function(d,i) { return x1(d.name); })
+      .attr("y", function(d) { return y(d.value); })
+      .attr("height", function(d) { return height - y(d.value); })
+      .on('mouseover', tip.show)
+      .on('mouseout', tip.hide)
+      .style("fill", function(d) { return color(d.name); })
+      .on('click', function(d, i){ return changeColor(color(d.name)); }); /////////////////
+
+  svg.selectAll("line.horizontalGrid").data(y.ticks(6)).enter()
+    .append("line")
+        .attr(
+        {
+            "class":"horizontalGrid",
+            "x1" : 0,
+            "x2" : width,
+            "y1" : function(d){ return y(d);},
+            "y2" : function(d){ return y(d);},
+            "fill" : "none",
+            "shape-rendering" : "crispEdges",
+            "stroke" : "black",
+            "stroke-width" : "1px",
+            "opacity" : 0.3
+        });
+
+  var legend = svg.selectAll(".legend")
+      .data(ageNames.slice())
+        .enter().append("g")
+      .attr("class", "legend")
+      .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
+
+  legend.append("rect")
+      .attr("x", width - 18)
+      .attr("width", 18)
+      .attr("height", 18)
+      .style("fill", color);
+
+  legend.append("text")
+      .attr("x", width - 24)
+      .attr("y", 9)
+      .attr("dy", ".35em")
+      .style("text-anchor", "end")
+      .text(function(d) { 
+        if (d === "Estimatedpopulation2013")
+            return "Estimated population (2013)";
+
+        if (d === "NumberofVotes")
+            return "Number of Votes";
+
+        if (d === "RejectedPapers")
+            return "Rejected Papers";
+
+        if (d === "RejectedPapers")
+            return "Rejected Papers";
+
+        if (d === "EstimatedMales2013")
+            return "Estimated Males (2013)";
+
+        if (d === "EstimatedFemales2013")
+            return "Estimated Females (2013)";
+
+        if (d === "Areasquarekm")
+            return "Area (square km)";
+
+        if (d === "Populationdensity")
+            return "Population density";
+
+        if (d === "Councilexpenditurepercapita")
+            return "Council expenditure per capita (£)";
+
+        if (d === "OverallSIMD2012Score")
+            return "Overall SIMD 2012 Score";
+
+        if (d === "OverallSIMD2012Rank")
+            return "Overall SIMD 2012 Rank";
+
+        if (d === "TotalPopulationSAPE2010")
+            return "Total Population SAPE (2010)";
+
+        if (d === "Incomedomain2012rank")
+            return "Income domain rank (2012)";
+
+        if (d === "Incomedomain2012rate")
+            return "Income domain rate (2012)";
+
+        if (d === "NumberofIncomeDeprivedPeople2012")
+            return "Income Deprived People (2012)";
+
+        if (d === "BestfitWorkingAgePopulation")
+            return "Best-fit Working Age Population";
+
+        if (d === "Employmentdomain2012rank")
+            return "Employment domain rank (2012)";
+
+        if (d === "Employmentdomain2012rate")
+            return "Employment domain rate (2012)";
+
+        if (d === "NumberofEmploymentDeprivedPeople2012")
+            return "Employment Deprived People (2012)";
+
+        if (d === "EducationSkillsandTrainingdomain2012rank")
+            return "Education, Skills and Training domain rank (2012)";
+
+        if (d === "EducationSkillsandTrainingdomain2012score")
+            return "Education, Skills and Training domain score (2012)";
+
+        if (d === "Workingagepeoplewithnoqualifications")
+            return "Working people with no qualifications";
+
+        if (d === "Peopleaged1619notinfulltimeeducation")
+            return "Peopleaged 16-19 not in full-time education";
+
+        if (d === "Proportionof1721yearoldsenteringhighereducation")
+            return "Proportion of 17-21 year olds entering higher education";
+
+        if (d === "PupilPerformanceonSQAatStage4")
+            return "Pupil Performance on SQA";
+
+        if (d === "SchoolPupilAbsences")
+            return "School Pupil Absences";
+
+
+        else
+            return d;
+
+         });
+
+});
+
+    }
+    </script>
+</head>
+<body bgcolor="#F0F6D8"> </body>
+
+<body>
+
+
+<script>
+window.onscroll = function (event) {
+    var left = window.pageXOffset;
+
+    var menu = document.getElementById("menu");
+    menu.style.left = left + "px";
+
+    var help = document.getElementById("help");
+    help.style.left = left + "px";
+
+    var colpicker = document.getElementById("colpicker");
+    colpicker.style.left = left + "px";
+}
+</script>
+
+<div id="menu" style="width:100%; display:none; background-color:#374954; position:relative;" align="center">
+<form onsubmit="getCheckboxValues(this); return false;" id="myFormMenu">
+    <table>
+        <tr>
+            <td>
+                <a href="" style="text-decoration:none; font-size:12px;">Home</a>
+            </td>
+            <td>
+                <span id="dd1" class="mutliSelect">
+                    <dl class="dropdown" id="coudrop" >
+                        <dt>
+                            <a href="#">
+                            <span class="hida">Counties</span>
+                            <span class="multiSel"></span>
+                            </a>
+                        </dt>
+                        <dd>
+                            <ul>
+                                <li><input type="checkbox" name="counties" value="Aberdeen City" id="cou0" autocomplete="off"/><label for="cou0">Aberdeen City</label></li>
+                                <li><input type="checkbox" name="counties" value="Aberdeenshire" id="cou1" autocomplete="off"/><label for="cou1">Aberdeenshire</label></li>
+                                <li><input type="checkbox" name="counties" value="Angus" id="cou2" autocomplete="off"/><label for="cou2">Angus</label></li>
+                                <li><input type="checkbox" name="counties" value="Argyll & Bute" id="cou3" autocomplete="off"/><label for="cou3">Argyll & Bute</label></li>
+                                <li><input type="checkbox" name="counties" value="Clackmannanshire" id="cou4" autocomplete="off"/><label for="cou4">Clackmannanshire</label></li>
+                                <li><input type="checkbox" name="counties" value="Comhairle Nan Eilean Siar" id="cou5" autocomplete="off"/><label for="cou5">Comhairle Nan Eilean Siar</label></li>
+                                <li><input type="checkbox" name="counties" value="Dumfries & Galloway" id="cou6" autocomplete="off"/><label for="cou6">Dumfries & Galloway</label></li>
+                                <li><input type="checkbox" name="counties" value="Dundee City" id="cou7" autocomplete="off"/><label for="cou7">Dundee City</label></li>
+                                <li><input type="checkbox" name="counties" value="East Ayrshire" id="cou8" autocomplete="off"/><label for="cou8">East Ayrshire</label></li>
+                                <li><input type="checkbox" name="counties" value="East Dunbartonshire" id="cou9" autocomplete="off"/><label for="cou9">East Dunbartonshire</label></li>
+                                <li><input type="checkbox" name="counties" value="East Lothian" id="cou10" autocomplete="off"/><label for="cou10">East Lothian</label></li>
+                                <li><input type="checkbox" name="counties" value="East Renfrewshire" id="cou11" autocomplete="off"/><label for="cou11">East Renfrewshire</label></li>
+                                <li><input type="checkbox" name="counties" value="Edinburgh" id="cou12" autocomplete="off"/><label for="cou12">City of Edinburgh</label></li>
+                                <li><input type="checkbox" name="counties" value="Falkirk" id="cou13" autocomplete="off"/><label for="cou13">Falkirk</label></li>
+                                <li><input type="checkbox" name="counties" value="Fife" id="cou14" autocomplete="off"/><label for="cou14">Fife</label></li>
+                                <li><input type="checkbox" name="counties" value="Glasgow City" id="cou15" autocomplete="off"/><label for="cou15">Glasgow City</label></li>
+                                <li><input type="checkbox" name="counties" value="Highland" id="cou16" autocomplete="off"/><label for="cou16">Highland</label></li>
+                                <li><input type="checkbox" name="counties" value="Inverclyde" id="cou17" autocomplete="off"/><label for="cou17">Inverclyde</label></li>
+                                <li><input type="checkbox" name="counties" value="Midlothian" id="cou18" autocomplete="off"/><label for="cou18">Midlothian</label></li>
+                                <li><input type="checkbox" name="counties" value="Moray" id="cou19" autocomplete="off"/><label for="cou19">Moray</label></li>
+                                <li><input type="checkbox" name="counties" value="North Ayrshire" id="cou20" autocomplete="off"/><label for="cou20">North Ayrshire</label></li>
+                                <li><input type="checkbox" name="counties" value="North Lanarkshire" id="cou21" autocomplete="off"/><label for="cou21">North Lanarkshire</label></li>
+                                <li><input type="checkbox" name="counties" value="Orkney Islands" id="cou22" autocomplete="off"/><label for="cou22">Orkney Islands</label></li>
+                                <li><input type="checkbox" name="counties" value="Perth & Kinross" id="cou23" autocomplete="off"/><label for="cou23">Perth & Kinross</label></li>
+                                <li><input type="checkbox" name="counties" value="Renfrewshire" id="cou24" autocomplete="off"/><label for="cou24">Renfrewshire</label></li>
+                                <li><input type="checkbox" name="counties" value="Scottish Borders" id="cou25" autocomplete="off"/><label for="cou25">Scottish Borders</label></li>
+                                <li><input type="checkbox" name="counties" value="Shetland Islands" id="cou26" autocomplete="off"/><label for="cou26">Shetland Islands</label></li>
+                                <li><input type="checkbox" name="counties" value="South Ayrshire" id="cou27" autocomplete="off"/><label for="cou27">South Ayrshire</label></li>
+                                <li><input type="checkbox" name="counties" value="South Lanarkshire" id="cou28" autocomplete="off"/><label for="cou28">South Lanarkshire</label></li>
+                                <li><input type="checkbox" name="counties" value="Stirling" id="cou29" autocomplete="off"/><label for="cou29">Stirling</label></li>
+                                <li><input type="checkbox" name="counties" value="West Dunbartonshire" id="cou30" autocomplete="off"/><label for="cou30">West Dunbartonshire</label></li>
+                                <li><input type="checkbox" name="counties" value="West Lothian" id="cou31" autocomplete="off"/><label for="cou31">West Lothian</label></li>
+                            </ul>
+                        </dd>
+                    </dl>
+                </span>
+            </td>
+            <td>
+                <span class="mutliSelect">
+                    <dl class="dropdown" id="couddrop">
+                        <dt>
+                            <a href="#">
+                                <span>Counties Data</span>
+                            </a>
+                        </dt>
+                        <dd>
+                            <ul>
+                                <li><input type="checkbox" name="keys" value="Electorate" id="coud0" autocomplete="off"/><label for="coud0">Electorate</label></li>
+                                <li><input type="checkbox" name="keys" value="NumberofVotes" id="coud1" autocomplete="off"/><label for="coud1">Number of Votes</label></li>
+                                <li><input type="checkbox" name="keys" value="Yes" id="coud2" autocomplete="off" checked="true" /><label for="coud2">Yes</label></li>
+                                <li><input type="checkbox" name="keys" value="No" id="coud3" autocomplete="off" checked="true" /><label for="coud3">No</label></li>
+                                <li><input type="checkbox" name="keys" value="RejectedPapers" id="coud4" autocomplete="off"/><label for="coud4">Rejected Papers</label></li>
+                                <li><input type="checkbox" name="keys" value="Estimatedpopulation2013" id="coud5" autocomplete="off"/><label for="coud5">Estimated population (2013)</label></li>
+                                <li><input type="checkbox" name="keys" value="EstimatedMales2013" id="coud6" autocomplete="off"/><label for="coud6">Estimated Males (2013)</label></li>
+                                <li><input type="checkbox" name="keys" value="EstimatedFemales2013" id="coud7" autocomplete="off"/><label for="coud7">Estimated Females (2013)</label></li>
+                                <li><input type="checkbox" name="keys" value="Areasquarekm" id="coud8" autocomplete="off"/><label for="coud8">Area (square km)</label></li>
+                                <li><input type="checkbox" name="keys" value="Populationdensity" id="coud9" autocomplete="off"/><label for="coud9">Population density</label></li>
+                                <li><input type="checkbox" name="keys" value="Councilexpenditurepercapita" id="coud10" autocomplete="off"/><label for="coud10">Council expenditure per capita (£)</label></li>
+                                <li><input type="checkbox" name="keys" value="OverallSIMD2012Score" id="emp0" autocomplete="off"/><label for="emp0">Overall SIMD 2012 Score</label></li>
+                                <li><input type="checkbox" name="keys" value="OverallSIMD2012Rank" id="emp0" autocomplete="off"/><label for="emp0">Overall SIMD 2012 Rank</label></li>
+                            </ul>
+                        </dd>
+                    </dl>
+                </span>
+            </td>
+            <td>
+                <span class="mutliSelect" style="">
+                    <dl class="dropdown" id="incdrop">
+                        <dt>
+                            <a href="#">
+                                <span>Income</span>
+                            </a>
+                        </dt>
+                        <dd>
+                            <ul>
+                                <li><input type="checkbox" name="keys" value="TotalPopulationSAPE2010" id="emp0" autocomplete="off"/><label for="emp0">Total Population (SAPE 2010)</label></li>
+                                <li><input type="checkbox" name="keys" value="Incomedomain2012rank" id="inc2" autocomplete="off"/><label for="inc2">Income domain rank</label></li>
+                                <li><input type="checkbox" name="keys" value="Incomedomain2012rate" id="inc3" autocomplete="off"/><label for="inc3">Income domain rate</label></li>
+                                <li><input type="checkbox" name="keys" value="NumberofIncomeDeprivedPeople2012" id="inc4" autocomplete="off"/><label for="inc4">Income Deprived People</label></li>
+                            </ul>
+                        </dd>
+                    </dl>
+                </span>
+            </td>
+            <td>
+                <span class="mutliSelect">
+                    <dl class="dropdown" id="empdrop">
+                        <dt>
+                            <a href="#">
+                                <span>Employment</span>
+                            </a>
+                        </dt>
+                        <dd>
+                            <ul>
+                                <li><input type="checkbox" name="keys" value="BestfitWorkingAgePopulation" id="emp0" autocomplete="off"/><label for="emp0">Best-fit Working Age Population</label></li>
+                                <li><input type="checkbox" name="keys" value="Employmentdomain2012rank" id="emp3" autocomplete="off"/><label for="emp3">Employment domain rank</label></li>
+                                <li><input type="checkbox" name="keys" value="Employmentdomain2012rate" id="emp1" autocomplete="off"/><label for="emp1">Employment domain rate</label></li>
+                                <li><input type="checkbox" name="keys" value="NumberofEmploymentDeprivedPeople2012" id="emp2" autocomplete="off"/><label for="emp2">Number of Employment Deprived People</label></li>
+                            </ul>
+                        </dd>
+                    </dl>
+                </span>
+            </td>
+            <td>
+                <span class="mutliSelect">
+                    <dl class="dropdown" id="edudrop">
+                        <dt>
+                            <a href="#">
+                                <span>Education</span>
+                            </a>
+                        </dt>
+                        <dd>
+                            <ul>
+                                <li><input type="checkbox" name="keys" value="EducationSkillsandTrainingdomain2012rank" id="edu0" autocomplete="off"/><label for="edu0">Education, Skills and Training rank</label></li>
+                                <li><input type="checkbox" name="keys" value="EducationSkillsandTrainingdomain2012score" id="edu1" autocomplete="off"/><label for="edu1">Education, Skills and Training score</label></li>
+                                <li><input type="checkbox" name="keys" value="Workingagepeoplewithnoqualifications" id="edu2" autocomplete="off"/><label for="edu2">Working age people with no qualifications</label></li>
+                                <li><input type="checkbox" name="keys" value="Peopleaged1619notinfulltimeeducation" id="edu3" autocomplete="off"/><label for="edu3">People aged 16-19 not in full time education, employment or training rate</label></li>
+                                <li><input type="checkbox" name="keys" value="Proportionof1721yearoldsenteringhighereducation" id="edu4" autocomplete="off"/><label for="edu4">Proportion of 17- 21 year olds entering higher education</label></li>
+                                <li><input type="checkbox" name="keys" value="PupilPerformanceonSQAatStage4" id="edu5" autocomplete="off"/><label for="edu5">Pupil Performance on SQA</label></li>
+                                <li><input type="checkbox" name="keys" value="SchoolPupilAbsences" id="edu6" autocomplete="off"/><label for="edu6">School Pupil Absences</label></li>
+                            </ul>
+                        </dd>
+                    </dl>
+                </span>
+            </td>
+            <td>
+                <a href="#" style="text-decoration:none; font-size:12px;" onclick="showHelp()">Help</a>
+            </td>
+        </tr>
+    </table>
+</form>
+</div>
+<div id="spiderchart" align="center" style="background-color:#F0F6D8;">
+<script>
+    RadarChart.defaultConfig.color = function() {
+    };
+    RadarChart.defaultConfig.radius = 4;
+</script>
+<script>
+    var data2 = [
+      {
+        className: 'yes',
+        axes: [
+          {axis: "Aberdeen City", value: 59390*100/143664}, 
+          {axis: "Aberdeenshire", value: 71337*100/180045}, 
+          {axis: "Angus", value: 35044*100/80302},
+          {axis: "Argyll & Bute", value: 26324*100/63516},  
+          {axis: "Clackmannanshire", value: 16350*100/35410},
+          {axis: "Comhairle Nan Eilean Siar", value: 9195*100/19758},
+          {axis: "Dumfries & Galloway", value: 36614*100/106775}, 
+          {axis: "Dundee City", value: 53620*100/93592},  
+          {axis: "East Ayrshire", value: 39762*100/84262},  
+          {axis: "East Dunbartonshire", value: 30624*100/79011},
+          {axis: "East Lothian", value: 27467*100/71798}, 
+          {axis: "East Renfrewshire", value: 24287*100/66021}, 
+          {axis: "Edinburgh", value: 123927*100/319025},  
+          {axis: "Falkirk", value: 50489*100/108626},  
+          {axis: "Fife", value: 114148*100/254162},
+          {axis: "Glasgow City", value: 194779*100/364664}, 
+          {axis: "Highland", value: 78069*100/165976}, 
+          {axis: "Inverclyde", value: 27243*100/54601},  
+          {axis: "Midlothian", value: 26370*100/60395},  
+          {axis: "Moray", value: 27232*100/64205},
+          {axis: "North Ayrshire", value: 47072*100/96173},  
+          {axis: "North Lanarkshire", value: 115783*100/226883},
+          {axis: "Orkney Islands", value: 4883*100/14907}, 
+          {axis: "Perth & Kinross", value: 41475*100/104285}, 
+          {axis: "Renfrewshire", value: 55466*100/117612},  
+          {axis: "Scottish Borders", value: 27906*100/83526},  
+          {axis: "Shetland Islands", value: 5669*100/15635},
+          {axis: "South Ayrshire", value: 34402*100/81716}, 
+          {axis: "South Lanarkshire", value: 100990*100/222927}, 
+          {axis: "Stirling", value: 25010*100/62225},  
+          {axis: "West Dunbartonshire", value: 33720*100/62532},  
+          {axis: "West Lothian", value: 53342*100/119115}
+        ]
+      },
+      {
+        className: 'no',
+        axes: [
+          {axis: "Aberdeen City", value: 84094*100/143664}, 
+          {axis: "Aberdeenshire", value: 108606*100/180045}, 
+          {axis: "Angus", value: 45192*100/80302},
+          {axis: "Argyll & Bute", value: 37143*100/63516},  
+          {axis: "Clackmannanshire", value: 19036*100/35410},
+          {axis: "Comhairle Nan Eilean Siar", value: 10544*100/19758}, 
+          {axis: "Dumfries & Galloway", value: 70039*100/106775}, 
+          {axis: "Dundee City", value: 39880*100/93592},  
+          {axis: "East Ayrshire", value: 44442*100/84262},  
+          {axis: "East Dunbartonshire", value: 48314*100/79011},
+          {axis: "East Lothian", value: 44283*100/71798}, 
+          {axis: "East Renfrewshire", value: 41690*100/66021}, 
+          {axis: "Edinburgh", value: 194638*100/319025},  
+          {axis: "Falkirk", value: 58030*100/108626},  
+          {axis: "Fife", value: 139788*100/254162},
+          {axis: "Glasgow City", value: 169347*100/364664}, 
+          {axis: "Highland", value: 87739*100/165976}, 
+          {axis: "Inverclyde", value: 27329*100/54601},  
+          {axis: "Midlothian", value: 33972*100/60395},  
+          {axis: "Moray", value: 36935*100/64205},
+          {axis: "North Ayrshire", value: 49016*100/96173},  
+          {axis: "North Lanarkshire", value: 110922*100/226883},
+          {axis: "Orkney Islands", value: 10004*100/14907}, 
+          {axis: "Perth & Kinross", value: 62714*100/104285}, 
+          {axis: "Renfrewshire", value: 62067*100/117612},  
+          {axis: "Scottish Borders", value: 55553*100/83526},  
+          {axis: "Shetland Islands", value: 9951*100/15635},
+          {axis: "South Ayrshire", value: 47247*100/81716}, 
+          {axis: "South Lanarkshire", value: 121800*100/222927}, 
+          {axis: "Stirling", value: 37153*100/62225},
+          {axis: "West Dunbartonshire", value: 28776*100/62532},
+          {axis: "West Lothian", value: 65682*100/119115}
+        ]
+    }
+    ];
+</script>
+<br><br>
+<div class="chart-container">
+</div>
+<script>
+    RadarChart.draw(".chart-container", data2);
+</script>
+</div>
+<script>
+var changingColorHEX;
+
+function changeColor(d){
+  hideColorPicker();
+  showColorPicker();
+  changingColorHEX = d;
+}
+
+function RGB2HTML(red, green, blue)
+{
+    var decColor = red + 256 * green + 65536 * blue;
+    return decColor.toString(16);
+}
+
+var hexDigits = new Array ("0","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f"); 
+
+function hex(x) {
+  return isNaN(x) ? "00" : hexDigits[(x - x % 16) / 16] + hexDigits[x % 16];
+}
+
+function rgb2hex(rgb) {
+  rgb = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+  return "#" + hex(rgb[1]) + hex(rgb[2]) + hex(rgb[3]);
+}
+</script>
+
+<div id="bigchart" style="background-color:white; display:none;" align="center">
+</div>
+<div id="help" style="width:100%; display:none; z-index:1; position: absolute; top:20%;" align="center"><div style="width:600px; background-color:#f0efef; -webkit-border-radius: 5px; -moz-border-radius: 5px; opacity:0.9; border-radius: 5px;" align="center">
+<font style="text-decoration:none; font-size:12px; color:black; opacity:1;">
+<br>Section 1.<br>
+<br>
+<p align="justify">
+Main view
+This screen displays the results of the referendum across all regions. By default, it shows the number (percentages) of Yes and No votes.
+To see more detailed results for a specific region, click on the region name. Section 2 provides more details from here on.
+To see an overall view for all regions, click on the chart. Section 2 provides more details from here on.
+Pressing the home button(corner left) will display the main view.</p>
+
+
+<br>Section 2.<br>
+<p align="justify">
+To view data for a particular region, select the region and columns to be viewed from the drop down menus.
+There are 5 drop-down menus: the first will allow you to select   one or more regions to view data for, the other four allow you to select the columns the graph will display from the existing files (ReferendumData, Emplyment, …)
+Use the colour picker to select a particular colour to display the results and the scrollbar to scroll in the chart area.</p>
+
+
+<br>Quick Tips<br>
+<p align="justify">
+
+    <br>•   Pressing the home button will take you the main view. 
+    <br>•   Click a region name to see the results for that region.
+    <br>•   Click on the chart to see the results for ALL regions.
+</p>
+
+<br><a href="#" onclick="hideHelp()"><font color="black">CLOSE HELP</font></a>
+<hr>
+</font>
+</div></div>
+
+<div id="colpicker" style="width:100%; display:none; z-index:1; position: absolute; top:20%;" align="center"><div style="width:270px; background-color:#ffffff; -webkit-border-radius: 5px; -moz-border-radius: 5px; border-radius: 5px;" align="center">
+<a href="#" onclick="hideColorPicker()"><font color="black">close color picker</font></a><br><br><div id="color-picker" class="cp-normal" align="center"></div>
+<script type="text/javascript">
+    ColorPicker(
+    
+      document.getElementById('color-picker'),
+    
+      function(hex, hsv, rgb) {
+          var elems = document.getElementsByTagName("rect");
+          for(var i = 0; i < elems.length; i++){
+            if(elems[i].style.fill != "" && rgb2hex(elems[i].style.fill) == changingColorHEX){
+              elems[i].style.fill = hex;
+            }
+          }
+
+          for(var i=0; i<colorArray.length; i++){
+            if(colorArray[i] == changingColorHEX){
+              changingColorHEX = hex;
+              colorArray[i] = hex;
+            }
+          }
+      });
+    
+</script>
+</div></div>
+
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+<script src="js/dropdown.js"></script>
+
+<!--Added graph legend - with ABSOLUTE position!!! -->
+<div id ="GraphLegend" class='legend' align="left" >
+<fieldset style="width:250px"><legend><font color="black">2014 Scottish Referendum Results</font></legend>
+<div class='legend-scale'>
+  <ul class='legend-labels'>
+    <li><span style='background:#419fff;'></span>Yes</li>
+    <li><span style='background:#ff3f3f;'></span>No</li>
+  </ul>
+</div>
+</fieldset>
+</div>
+<style type='text/css' >
+  .legend {position: absolute;right: 50px;top: 500px;}
+  
+   .legend .legend-scale ul {
+    margin: 0;
+    margin-bottom: 5px;
+    padding: 0;
+    float: left;
+    list-style: none;
+    }
+    .legend .legend-scale ul li {
+    font-size: 100%;
+    list-style: none;
+    margin-left: 0;
+    line-height: 18px;
+    margin-bottom: 2px;
+    color: black;
+    }
+  .legend ul.legend-labels li span {
+    display: block;
+    float: left;
+    height: 15px;
+    width: 15px;
+    margin-right: 5px;
+    margin-left: 0;
+    border: 1px solid #000;
+    }
+</style> 
+
+</body>
+</html>
